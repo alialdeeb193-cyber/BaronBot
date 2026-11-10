@@ -1,4 +1,4 @@
-from import os, threading
+import os, threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 class H(BaseHTTPRequestHandler):
