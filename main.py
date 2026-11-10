@@ -1,80 +1,87 @@
-import os
-import threading
-import requests
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import os, uuid, requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 NEMER_TOKEN = os.getenv("NEMER_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+BASE = "https://nemer-card.com"
+HEADERS = {"api-token": NEMER_TOKEN}
 
-# --- keep alive لـ Render ---
-class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is alive")
+def get_profile():
+    r = requests.get(f"{BASE}/client/api/profile/", headers=HEADERS, timeout=20)
+    print("PROFILE:", r.status_code, r.text[:500])
+    return r.json() if r.status_code == 200 else {}
 
-def keep_alive():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), Handler)
-    server.serve_forever()
+def get_products():
+    r = requests.get(f"{BASE}/client/api/products/", headers=HEADERS, timeout=20)
+    print("PRODUCTS:", r.status_code, r.text[:1000])
+    data = r.json()
+    if isinstance(data, dict):
+        return data.get("products", []) or data.get("data", []) or []
+    return data if isinstance(data, list) else []
 
-# --- نمر كارد ---
-def get_balance():
+def get_balance_text():
     try:
-        headers = {"Authorization": f"Bearer {NEMER_TOKEN}"}
-        # إذا نمر كارد عندها رابط تاني، بنغيرو بعدين
-        r = requests.get("https://api.nemercard.com/api/balance", headers=headers, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            return str(data)
-        return f"خطأ من نمر كارد: {r.status_code}"
+        d = get_profile()
+        # جرب كل الاحتمالات للرصيد
+        bal = d.get("balance") or d.get("Balance")
+        if bal is None and "user" in d: bal = d["user"].get("balance")
+        if bal is None and "profile" in d: bal = d["profile"].get("balance")
+        if bal is None and "data" in d and isinstance(d["data"], dict): bal = d["data"].get("balance")
+        if bal is None: return f"رصيدك: {d}"
+        return f"💰 رصيدك: {bal} $"
     except Exception as e:
-        return f"خطأ بالاتصال: {e}"
+        return f"❌ خطأ بالرصيد: {e}"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("💰 رصيدي", callback_data="balance")],
-        [InlineKeyboardButton("⚡ شحن", callback_data="charge")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(
-        "أهلا فيك ببارون بوت ❤️\nاختر من القائمة:",
-        reply_markup=reply_markup
-    )
+    kb = [[InlineKeyboardButton("💰 رصيدي", callback_data="balance")],
+          [InlineKeyboardButton("🎮 شحن ببجي", callback_data="shop")]]
+    await update.message.reply_text("أهلا فيك بـ BaronBot 👑\nاختر:", reply_markup=InlineKeyboardMarkup(kb))
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
-    if text in ["رصيد", "الرصيد", "/رصيد", "💰 رصيدي"]:
-        if not NEMER_TOKEN:
-            await update.message.reply_text("التوكن مو موجود بـ Render، تأكد من NEMER_TOKEN")
+async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if q.data == "balance":
+        await q.edit_message_text(get_balance_text())
+    elif q.data == "shop":
+        prods = get_products()
+        if not prods:
+            await q.edit_message_text("❌ ما في منتجات حالياً، جرب بعد شوي")
             return
-        await update.message.reply_text("عم جيب رصيدك من نمر كارد... ⏳")
-        bal = get_balance()
-        await update.message.reply_text(f"رصيدك:\n{bal}")
-    elif text in ["شحن", "⚡ شحن"]:
-        await update.message.reply_text("ابعت المبلغ يلي بدك تشحنو، أو تواصل مع الإدارة.")
-    else:
-        await update.message.reply_text("ابعت /start للبداية، أو اكتب `رصيد` لتعرف رصيدك.")
+        kb = []
+        for p in prods[:20]:
+            pid = p.get("id")
+            name = p.get("name") or p.get("title") or str(pid)
+            price = p.get("price") or p.get("cost") or ""
+            kb.append([InlineKeyboardButton(f"{name} - {price}$", callback_data=f"buy_{pid}")])
+        kb.append([InlineKeyboardButton("🔙 رجوع", callback_data="back")])
+        await q.edit_message_text("اختر المنتج:", reply_markup=InlineKeyboardMarkup(kb))
+    elif q.data == "back":
+        kb = [[InlineKeyboardButton("💰 رصيدي", callback_data="balance")],
+              [InlineKeyboardButton("🎮 شحن ببجي", callback_data="shop")]]
+        await q.edit_message_text("أهلا فيك بـ BaronBot 👑\nاختر:", reply_markup=InlineKeyboardMarkup(kb))
+    elif q.data.startswith("buy_"):
+        pid = q.data.replace("buy_", "")
+        context.user_data["buy_pid"] = pid
+        await q.edit_message_text("ابعت ID اللاعب (ببجي):")
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if query.data == "balance":
-        bal = get_balance()
-        await query.message.reply_text(f"رصيدك:\n{bal}")
-    elif query.data == "charge":
-        await query.message.reply_text("ابعت المبلغ يلي بدك تشحنو.")
-
-def main():
-    threading.Thread(target=keep_alive, daemon=True).start()
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("Bot started...")
-    app.run_polling()
+async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if "buy_pid" not in context.user_data:
+        return
+    pid = context.user_data.pop("buy_pid")
+    player = update.message.text.strip()
+    order_uuid = str(uuid.uuid4())
+    try:
+        r = requests.get(f"{BASE}/client/api/newOrder/{pid}/params", params={"qty": 1, "playerId": player, "order_uuid": order_uuid}, headers=HEADERS, timeout=30)
+        await update.message.reply_text(f"✅ تم إرسال الطلب!\nرقم الطلب: {order_uuid}\nالرد: {r.text[:500]}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ خطأ: {e}")
 
 if __name__ == "__main__":
-    main()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(buttons))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
+    print("Bot started...")
+    app.run_polling()
