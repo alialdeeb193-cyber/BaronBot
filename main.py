@@ -19,7 +19,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     context.user_data['product'] = query.data
-    await query.message.reply_text("تمام ✅\nحول على شام كاش على هاد الرقم: [حط رقمك هون]\nوبعدين ابعت صورة التحويل هون.")
+    await query.message.reply_text("تمام ✅\nحول على شام كاش على هاد الرقم: [ 887b9099cd102f005bd724d7d58471eb]\nوبعدين ابعت صورة التحويل هون.")
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     product = context.user_data.get('product', 'غير محدد')
     user = update.message.from_user
