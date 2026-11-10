@@ -24,31 +24,56 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 BASE = "https://nemer-card.com"
 HEADERS = {"api-token": NEMER_TOKEN}
 
+def find_key(obj, keys):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k.lower() in keys:
+                return v
+            r = find_key(v, keys)
+            if r is not None:
+                return r
+    if isinstance(obj, list):
+        for item in obj:
+            r = find_key(item, keys)
+            if r is not None:
+                return r
+    return None
+
+def find_list(obj):
+    if isinstance(obj, list) and obj and isinstance(obj[0], dict):
+        return obj
+    if isinstance(obj, dict):
+        for v in obj.values():
+            r = find_list(v)
+            if r:
+                return r
+    return []
+
 def get_profile():
-    r = requests.get(f"{BASE}/client/api/profile/", headers=HEADERS, timeout=20)
-    print("PROFILE:", r.status_code, r.text[:500])
-    return r.json() if r.status_code == 200 else {}
+    try:
+        r = requests.get(f"{BASE}/profile", headers=HEADERS, timeout=15)
+        print("PROFILE:", r.status_code, r.text[:500])
+        return r.json() if r.text else {}
+    except Exception as e:
+        print("PROFILE ERR:", e)
+        return {}
+
+def get_balance_text():
+    data = get_profile()
+    bal = find_key(data, ["balance", "credit", "wallet", "رصيد"])
+    if bal is None:
+        bal = 0
+    return f"💰 رصيدك الحالي: {bal} $"
 
 def get_products():
-    r = requests.get(f"{BASE}/client/api/products/", headers=HEADERS, timeout=20)
-    print("PRODUCTS:", r.status_code, r.text[:1000])
-    data = r.json()
-    if isinstance(data, dict):
-        return data.get("products", []) or data.get("data", []) or []
-    return data if isinstance(data, list) else []
-
-def get_balance_test():
     try:
-        r = requests.get(f"{BASE}/client/api/profile/", HEADERS=headers, timeout=20)
-        return f"Status: {r.status_code}\nReply: {r.text[:500]}"
+        r = requests.get(f"{BASE}/products", headers=HEADERS, timeout=15)
+        print("PRODUCTS:", r.status_code, r.text[:500])
+        data = r.json() if r.text else {}
+        return find_list(data)
     except Exception as e:
-        return f"Error: {e}"
-def get_balance_text():
-    try:
-        d = get_profile()
-        bal = d.get("balance", 0) if isinstance(d, dict) else 0
-        return f"💰 رصيدك الحالي: {bal} $"
-    except Exception as e:
+        print("PRODUCTS ERR:", e)
+        return []
         return f"Error: {e}"
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[InlineKeyboardButton("💰 رصيدي", callback_data="balance")],
