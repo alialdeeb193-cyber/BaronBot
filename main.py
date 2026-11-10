@@ -35,6 +35,8 @@ async def admin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("تم الرفض ❌")
 def main():
+    import asyncio
+    asyncio.set_event_loop(asyncio.new_event_loop())
     threading.Thread(target=run_flask, daemon=True).start()
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
