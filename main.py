@@ -27,18 +27,12 @@ def get_products():
         return data.get("products", []) or data.get("data", []) or []
     return data if isinstance(data, list) else []
 
-def get_balance_text():
+def get_balance_test():
     try:
-        d = get_profile()
-        # جرب كل الاحتمالات للرصيد
-        bal = d.get("balance") or d.get("Balance")
-        if bal is None and "user" in d: bal = d["user"].get("balance")
-        if bal is None and "profile" in d: bal = d["profile"].get("balance")
-        if bal is None and "data" in d and isinstance(d["data"], dict): bal = d["data"].get("balance")
-        if bal is None: return f"رصيدك: {d}"
-        return f"💰 رصيدك: {bal} $"
+        r = requests.get(f"{BASE}/client/api/profile/", HEDERS=headers, timeout=20)
+        return f"Status: {r.status_code}\nReply: {r.text[:500]}"
     except Exception as e:
-        return f"❌ خطأ بالرصيد: {e}"
+        return f"Error: {e}"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[InlineKeyboardButton("💰 رصيدي", callback_data="balance")],
