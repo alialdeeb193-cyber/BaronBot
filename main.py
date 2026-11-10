@@ -21,8 +21,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 NEMER_TOKEN = os.getenv("NEMER_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-BASE = "https://nemer-card.com"
-HEADERS = {"api-token": NEMER_TOKEN}
+BASE = "https://nemer-card.com/api"
+HEADERS = {"api-token": NEMER_TOKEN, "Authorization": f"Bearer {NEMER_TOKEN}", "Content-Type": "application/json", "Accept": "application/json"}
 
 def find_key(obj, keys):
     if isinstance(obj, dict):
