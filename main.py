@@ -43,7 +43,9 @@ def get_balance_test():
         return f"Status: {r.status_code}\nReply: {r.text[:500]}"
     except Exception as e:
         return f"Error: {e}"
-
+def get_balance_text():
+    b = get_balance()
+    return f"💰 رصيدك الحالي: {b} $"
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[InlineKeyboardButton("💰 رصيدي", callback_data="balance")],
           [InlineKeyboardButton("🎮 شحن ببجي", callback_data="shop")]]
