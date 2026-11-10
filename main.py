@@ -13,7 +13,7 @@ def keep_alive():
     HTTPServer(("0.0.0.0", port), H).serve_forever()
 
 threading.Thread(target=keep_alive, daemon=True).start()
-telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
 TOKEN = "9185507456:AAF0d0Dx5DBqy53-wFCxBkAkJpUVzm24TKc"
