@@ -39,13 +39,17 @@ def get_products():
 
 def get_balance_test():
     try:
-        r = requests.get(f"{BASE}/client/api/profile/", HEDERS=headers, timeout=20)
+        r = requests.get(f"{BASE}/client/api/profile/", HEADERS=headers, timeout=20)
         return f"Status: {r.status_code}\nReply: {r.text[:500]}"
     except Exception as e:
         return f"Error: {e}"
 def get_balance_text():
-    b = get_balance()
-    return f"💰 رصيدك الحالي: {b} $"
+    try:
+        d = get_profile()
+        bal = d.get("balance", 0) if isinstance(d, dict) else 0
+        return f"💰 رصيدك الحالي: {bal} $"
+    except Exception as e:
+        return f"Error: {e}"
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[InlineKeyboardButton("💰 رصيدي", callback_data="balance")],
           [InlineKeyboardButton("🎮 شحن ببجي", callback_data="shop")]]
